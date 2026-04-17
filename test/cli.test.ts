@@ -3,6 +3,9 @@ import {
   parseArgs,
   loadConfig,
   dispatch,
+  COMMANDS,
+  USAGE,
+  VERSION,
   type ParsedArgs,
 } from "../src/cli.js";
 
@@ -84,6 +87,32 @@ describe("parseArgs", () => {
     ]);
     expect(result.flags.name).toBe("My Cool Agent");
     expect(result.flags.bio).toBe("I do things");
+  });
+
+  it("parses --help as boolean flag without consuming next arg", () => {
+    const result = parseArgs(["node", "cli.js", "register", "--help"]);
+    expect(result.command).toBe("register");
+    expect(result.flags.help).toBe("");
+    expect(result.positional).toEqual([]);
+  });
+
+  it("parses --version as boolean flag", () => {
+    const result = parseArgs(["node", "cli.js", "--version"]);
+    expect(result.command).toBe("--version");
+  });
+
+  it("parses --help after other flags without consuming them", () => {
+    const result = parseArgs([
+      "node",
+      "cli.js",
+      "create-task",
+      "--help",
+      "--title",
+      "foo",
+    ]);
+    expect(result.flags.help).toBe("");
+    // --title should still be parsed normally
+    expect(result.flags.title).toBe("foo");
   });
 });
 
@@ -255,9 +284,7 @@ describe("dispatch", () => {
       flags: { "tweet-url": "https://x.com/test/status/123" },
     };
     await dispatch(client, args);
-    expect(client.verify).toHaveBeenCalledWith(
-      "https://x.com/test/status/123",
-    );
+    expect(client.verify).toHaveBeenCalledWith("https://x.com/test/status/123");
   });
 
   it("routes profile", async () => {
@@ -548,6 +575,72 @@ describe("dispatch", () => {
         flags: {},
       }),
     ).rejects.toThrow("Missing required flag: --rating");
+  });
+});
+
+// ===== COMMANDS metadata =====
+
+describe("COMMANDS", () => {
+  const dispatchCommands = [
+    "register",
+    "update-username",
+    "verify",
+    "profile",
+    "create-task",
+    "list-tasks",
+    "get-task",
+    "list-applications",
+    "accept-application",
+    "reject-application",
+    "approve-submission",
+    "dispute-task",
+    "cancel-task",
+    "send-message",
+    "get-messages",
+    "create-review",
+    "list-actions",
+    "balance",
+    "watch",
+  ];
+
+  it("has an entry for every dispatch command", () => {
+    for (const cmd of dispatchCommands) {
+      expect(COMMANDS[cmd]).toBeDefined();
+    }
+  });
+
+  it("has no entries for non-existent commands", () => {
+    for (const name of Object.keys(COMMANDS)) {
+      expect(dispatchCommands).toContain(name);
+    }
+  });
+
+  it("every entry has a description", () => {
+    for (const [name, def] of Object.entries(COMMANDS)) {
+      expect(def.description).toBeTruthy();
+    }
+  });
+});
+
+// ===== USAGE =====
+
+describe("USAGE", () => {
+  it("mentions every command", () => {
+    for (const name of Object.keys(COMMANDS)) {
+      expect(USAGE).toContain(name);
+    }
+  });
+
+  it("includes per-command help hint", () => {
+    expect(USAGE).toContain("mcclaw-agent <command> --help");
+  });
+});
+
+// ===== VERSION =====
+
+describe("VERSION", () => {
+  it("is a semver string", () => {
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
 

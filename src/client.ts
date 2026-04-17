@@ -28,8 +28,10 @@ export const NETWORKS = {
   baseSepolia: {
     chainId: baseSepolia.id,
     tokenAddress: "0xAF92ea1d98fFB6bb1331E6b8Cd6904f606f5a4BE" as `0x${string}`,
-    escrowAddress: "0xd8aE33B1A63ee0BfF2c08Ab16F7F177F0354c346" as `0x${string}`,
-    applicationStakingAddress: "0x2aA748156f063489621e7315a44a459d83e89042" as `0x${string}`,
+    escrowAddress:
+      "0xd8aE33B1A63ee0BfF2c08Ab16F7F177F0354c346" as `0x${string}`,
+    applicationStakingAddress:
+      "0x2aA748156f063489621e7315a44a459d83e89042" as `0x${string}`,
   },
 } as const;
 
@@ -115,8 +117,7 @@ export class McclawClient {
       NETWORKS.baseSepolia.applicationStakingAddress;
     this.chainId = config.chainId ?? NETWORKS.baseSepolia.chainId;
     this.isWebSocket =
-      config.rpcUrl.startsWith("wss://") ||
-      config.rpcUrl.startsWith("ws://");
+      config.rpcUrl.startsWith("wss://") || config.rpcUrl.startsWith("ws://");
 
     this.http = new HttpClient(config.apiBaseUrl, () => this.apiKey);
 
@@ -270,9 +271,7 @@ export class McclawClient {
     const amount = BigInt(task.escrowAmount);
 
     // Convert feePercent (stored as decimal, e.g. "5") to basis points
-    const feeBasisPoints = Math.floor(
-      parseFloat(task.feePercent ?? "5") * 100,
-    );
+    const feeBasisPoints = Math.floor(parseFloat(task.feePercent ?? "5") * 100);
 
     // 2. Read permit nonce
     const nonce = (await this._publicClient.readContract({
@@ -441,7 +440,13 @@ export class McclawClient {
       args: { intendedAgent: this.account.address },
       onLogs: (logs) => {
         for (const log of logs) {
-          if (!log.args.applicationId || !log.args.human || !log.args.amount || !log.args.expiresAt) continue;
+          if (
+            !log.args.applicationId ||
+            !log.args.human ||
+            !log.args.amount ||
+            !log.args.expiresAt
+          )
+            continue;
           const event: ApplicationEvent = {
             applicationId: log.args.applicationId,
             human: log.args.human,
@@ -449,17 +454,28 @@ export class McclawClient {
             expiresAt: log.args.expiresAt,
             blockNumber: log.blockNumber ?? 0n,
           };
-          try { handlers.onApplication(event); } catch (e) { handlers.onError?.(e as Error); }
+          try {
+            handlers.onApplication(event);
+          } catch (e) {
+            handlers.onError?.(e as Error);
+          }
         }
       },
       onError: (err) => handlers.onError?.(err),
     });
 
     const escrowEventNames = [
-      "TaskPosted", "TaskCreated", "TaskCreatedWithApplication",
-      "TaskSubmitted", "TaskDisputed", "AgentApproved",
-      "SubmissionApproved", "SubmissionRejected",
-      "TaskReleased", "TaskRefunded", "TaskCancelled",
+      "TaskPosted",
+      "TaskCreated",
+      "TaskCreatedWithApplication",
+      "TaskSubmitted",
+      "TaskDisputed",
+      "AgentApproved",
+      "SubmissionApproved",
+      "SubmissionRejected",
+      "TaskReleased",
+      "TaskRefunded",
+      "TaskCancelled",
     ] as const;
 
     const unwatchEscrow = this._publicClient.watchContractEvent({
@@ -468,7 +484,9 @@ export class McclawClient {
       args: { agent: this.account.address },
       onLogs: (logs) => {
         for (const log of logs) {
-          const taskId = (log.args as Record<string, unknown>).taskId as bigint | undefined;
+          const taskId = (log.args as Record<string, unknown>).taskId as
+            | bigint
+            | undefined;
           if (!taskId) continue;
           const eventName = escrowEventNames.find((n) => n === log.eventName);
           if (!eventName) continue;
@@ -477,13 +495,20 @@ export class McclawClient {
             eventName,
             blockNumber: log.blockNumber ?? 0n,
           };
-          try { handlers.onTaskEvent(event); } catch (e) { handlers.onError?.(e as Error); }
+          try {
+            handlers.onTaskEvent(event);
+          } catch (e) {
+            handlers.onError?.(e as Error);
+          }
         }
       },
       onError: (err) => handlers.onError?.(err),
     });
 
-    return () => { unwatchApp(); unwatchEscrow(); };
+    return () => {
+      unwatchApp();
+      unwatchEscrow();
+    };
   }
 
   private _watchPoll(handlers: WatchHandlers): () => void {
@@ -497,11 +522,21 @@ export class McclawClient {
         const from = fromBlock ?? latest;
 
         // ApplicationStakeLocked filtered by intendedAgent
-        type AppLog = { args: { applicationId?: bigint; human?: `0x${string}`; amount?: bigint; expiresAt?: bigint }; blockNumber: bigint | null };
+        type AppLog = {
+          args: {
+            applicationId?: bigint;
+            human?: `0x${string}`;
+            amount?: bigint;
+            expiresAt?: bigint;
+          };
+          blockNumber: bigint | null;
+        };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const appLogs: AppLog[] = await (this._publicClient as any).getLogs({
           address: this.applicationStakingAddress,
-          event: APPLICATION_STAKING_ABI.find((e) => e.type === "event" && e.name === "ApplicationStakeLocked"),
+          event: APPLICATION_STAKING_ABI.find(
+            (e) => e.type === "event" && e.name === "ApplicationStakeLocked",
+          ),
           args: { intendedAgent: this.account.address },
           fromBlock: from,
           toBlock,
@@ -516,7 +551,11 @@ export class McclawClient {
             expiresAt,
             blockNumber: log.blockNumber ?? 0n,
           };
-          try { handlers.onApplication(event); } catch (e) { handlers.onError?.(e as Error); }
+          try {
+            handlers.onApplication(event);
+          } catch (e) {
+            handlers.onError?.(e as Error);
+          }
         }
 
         // All Escrow events filtered by agent
@@ -530,7 +569,11 @@ export class McclawClient {
           // Filter by agent topic (topic[2] for most events, varies)
           // We rely on decoded args — skip if agent doesn't match
           try {
-            const decoded = decodeEventLog({ abi: ESCROW_ABI, data: log.data, topics: log.topics });
+            const decoded = decodeEventLog({
+              abi: ESCROW_ABI,
+              data: log.data,
+              topics: log.topics,
+            });
             const args = decoded.args as Record<string, unknown>;
             const logAgent = (args.agent as string | undefined)?.toLowerCase();
             if (logAgent !== agentAddr) continue;
@@ -541,7 +584,11 @@ export class McclawClient {
               eventName: decoded.eventName as TaskEvent["eventName"],
               blockNumber: log.blockNumber ?? 0n,
             };
-            try { handlers.onTaskEvent(event); } catch (e) { handlers.onError?.(e as Error); }
+            try {
+              handlers.onTaskEvent(event);
+            } catch (e) {
+              handlers.onError?.(e as Error);
+            }
           } catch {
             // Unknown event — skip
           }
@@ -556,7 +603,9 @@ export class McclawClient {
     };
 
     poll();
-    return () => { stopped = true; };
+    return () => {
+      stopped = true;
+    };
   }
 
   /**
@@ -710,10 +759,9 @@ export class McclawClient {
 
   /** Send a message in a task. */
   async sendMessage(taskId: string, content: string): Promise<MessageResponse> {
-    return this.http.post<MessageResponse>(
-      `/tasks/${taskId}/messages/`,
-      { content },
-    );
+    return this.http.post<MessageResponse>(`/tasks/${taskId}/messages/`, {
+      content,
+    });
   }
 
   // ===== Files =====
@@ -740,10 +788,10 @@ export class McclawClient {
     rating: number,
     comment?: string,
   ): Promise<ReviewResponse> {
-    return this.http.post<ReviewResponse>(
-      `/tasks/${taskId}/reviews`,
-      { rating, comment },
-    );
+    return this.http.post<ReviewResponse>(`/tasks/${taskId}/reviews`, {
+      rating,
+      comment,
+    });
   }
 
   /** Get reviews for an agent. */
@@ -755,10 +803,9 @@ export class McclawClient {
 
   /** List DM conversations. */
   async listConversations(): Promise<DMConversationResponse[]> {
-    const result =
-      await this.http.get<{ conversations: DMConversationResponse[] }>(
-        "/agents/messages",
-      );
+    const result = await this.http.get<{
+      conversations: DMConversationResponse[];
+    }>("/agents/messages");
     return result.conversations;
   }
 
@@ -783,10 +830,9 @@ export class McclawClient {
     conversationId: string,
     content: string,
   ): Promise<DMResponse> {
-    return this.http.post<DMResponse>(
-      `/messages/${conversationId}/`,
-      { content },
-    );
+    return this.http.post<DMResponse>(`/messages/${conversationId}/`, {
+      content,
+    });
   }
 
   // ===== Activity =====

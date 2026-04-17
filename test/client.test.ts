@@ -174,9 +174,7 @@ describe("McclawClient", () => {
       const readContractMock = vi.fn().mockResolvedValue(BigInt(0));
       const signTypedDataMock = vi
         .fn()
-        .mockResolvedValue(
-          "0x" + "ab".repeat(32) + "cd".repeat(32) + "1b",
-        );
+        .mockResolvedValue("0x" + "ab".repeat(32) + "cd".repeat(32) + "1b");
       const writeContractMock = vi
         .fn()
         .mockResolvedValue("0xdeadbeef" as `0x${string}`);
@@ -395,9 +393,7 @@ describe("McclawClient", () => {
       const client = makeClient("old-key");
 
       // Rotate call
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ api_key: "new-key" }),
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ api_key: "new-key" }));
 
       const newKey = await client.rotateApiKey();
       expect(newKey).toBe("new-key");
@@ -419,5 +415,4 @@ describe("McclawClient", () => {
       expect(headers["X-API-Key"]).toBe("new-key");
     });
   });
-
 });

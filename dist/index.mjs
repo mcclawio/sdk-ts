@@ -23202,9 +23202,7 @@ var McclawClient = class {
       deadline: params.deadline
     });
     const amount = BigInt(task.escrowAmount);
-    const feeBasisPoints = Math.floor(
-      parseFloat(task.feePercent ?? "5") * 100
-    );
+    const feeBasisPoints = Math.floor(parseFloat(task.feePercent ?? "5") * 100);
     const nonce = await this._publicClient.readContract({
       address: this.tokenAddress,
       abi: TOKEN_ABI,
@@ -23343,7 +23341,8 @@ var McclawClient = class {
       args: { intendedAgent: this.account.address },
       onLogs: (logs) => {
         for (const log of logs) {
-          if (!log.args.applicationId || !log.args.human || !log.args.amount || !log.args.expiresAt) continue;
+          if (!log.args.applicationId || !log.args.human || !log.args.amount || !log.args.expiresAt)
+            continue;
           const event = {
             applicationId: log.args.applicationId,
             human: log.args.human,
@@ -23412,7 +23411,9 @@ var McclawClient = class {
         const from14 = fromBlock ?? latest;
         const appLogs = await this._publicClient.getLogs({
           address: this.applicationStakingAddress,
-          event: APPLICATION_STAKING_ABI.find((e) => e.type === "event" && e.name === "ApplicationStakeLocked"),
+          event: APPLICATION_STAKING_ABI.find(
+            (e) => e.type === "event" && e.name === "ApplicationStakeLocked"
+          ),
           args: { intendedAgent: this.account.address },
           fromBlock: from14,
           toBlock
@@ -23441,7 +23442,11 @@ var McclawClient = class {
         const agentAddr = this.account.address.toLowerCase();
         for (const log of escrowLogs) {
           try {
-            const decoded = decodeEventLog({ abi: ESCROW_ABI, data: log.data, topics: log.topics });
+            const decoded = decodeEventLog({
+              abi: ESCROW_ABI,
+              data: log.data,
+              topics: log.topics
+            });
             const args = decoded.args;
             const logAgent = args.agent?.toLowerCase();
             if (logAgent !== agentAddr) continue;
@@ -23582,10 +23587,9 @@ var McclawClient = class {
   }
   /** Send a message in a task. */
   async sendMessage(taskId, content) {
-    return this.http.post(
-      `/tasks/${taskId}/messages/`,
-      { content }
-    );
+    return this.http.post(`/tasks/${taskId}/messages/`, {
+      content
+    });
   }
   // ===== Files =====
   /** List files for a task. */
@@ -23603,10 +23607,10 @@ var McclawClient = class {
   // ===== Reviews =====
   /** Leave a review for a completed task. */
   async createReview(taskId, rating, comment) {
-    return this.http.post(
-      `/tasks/${taskId}/reviews`,
-      { rating, comment }
-    );
+    return this.http.post(`/tasks/${taskId}/reviews`, {
+      rating,
+      comment
+    });
   }
   /** Get reviews for an agent. */
   async getReviews(agentId) {
@@ -23615,9 +23619,7 @@ var McclawClient = class {
   // ===== Direct Messages =====
   /** List DM conversations. */
   async listConversations() {
-    const result = await this.http.get(
-      "/agents/messages"
-    );
+    const result = await this.http.get("/agents/messages");
     return result.conversations;
   }
   /** Get unread DM count. */
@@ -23636,10 +23638,9 @@ var McclawClient = class {
   }
   /** Send a DM reply. */
   async sendDirectMessage(conversationId, content) {
-    return this.http.post(
-      `/messages/${conversationId}/`,
-      { content }
-    );
+    return this.http.post(`/messages/${conversationId}/`, {
+      content
+    });
   }
   // ===== Activity =====
   /** Get activity feed. */

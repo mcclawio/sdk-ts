@@ -2,6 +2,19 @@
 import { M as McclawClient } from './client-Bpkhv6N4.mjs';
 import 'viem';
 
+declare const VERSION = "0.1.0";
+interface FlagDef {
+    name: string;
+    required: boolean;
+    description: string;
+}
+interface CommandDef {
+    description: string;
+    positional?: string[];
+    flags?: FlagDef[];
+}
+declare const COMMANDS: Record<string, CommandDef>;
+declare const USAGE: string;
 interface ParsedArgs {
     command: string;
     positional: string[];
@@ -20,4 +33,4 @@ interface CliConfig {
 declare function loadConfig(command: string): CliConfig;
 declare function dispatch(client: McclawClient, args: ParsedArgs): Promise<unknown>;
 
-export { type CliConfig, type ParsedArgs, dispatch, loadConfig, parseArgs };
+export { COMMANDS, type CliConfig, type ParsedArgs, USAGE, VERSION, dispatch, loadConfig, parseArgs };

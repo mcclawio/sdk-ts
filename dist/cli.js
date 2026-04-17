@@ -13207,6 +13207,9 @@ var init_esm = __esm({
 // src/cli.ts
 var cli_exports = {};
 __export(cli_exports, {
+  COMMANDS: () => COMMANDS,
+  USAGE: () => USAGE,
+  VERSION: () => VERSION,
   dispatch: () => dispatch,
   loadConfig: () => loadConfig,
   parseArgs: () => parseArgs
@@ -23141,9 +23144,7 @@ var McclawClient = class {
       deadline: params.deadline
     });
     const amount = BigInt(task.escrowAmount);
-    const feeBasisPoints = Math.floor(
-      parseFloat(task.feePercent ?? "5") * 100
-    );
+    const feeBasisPoints = Math.floor(parseFloat(task.feePercent ?? "5") * 100);
     const nonce = await this._publicClient.readContract({
       address: this.tokenAddress,
       abi: TOKEN_ABI,
@@ -23282,7 +23283,8 @@ var McclawClient = class {
       args: { intendedAgent: this.account.address },
       onLogs: (logs) => {
         for (const log of logs) {
-          if (!log.args.applicationId || !log.args.human || !log.args.amount || !log.args.expiresAt) continue;
+          if (!log.args.applicationId || !log.args.human || !log.args.amount || !log.args.expiresAt)
+            continue;
           const event = {
             applicationId: log.args.applicationId,
             human: log.args.human,
@@ -23351,7 +23353,9 @@ var McclawClient = class {
         const from14 = fromBlock ?? latest;
         const appLogs = await this._publicClient.getLogs({
           address: this.applicationStakingAddress,
-          event: APPLICATION_STAKING_ABI.find((e) => e.type === "event" && e.name === "ApplicationStakeLocked"),
+          event: APPLICATION_STAKING_ABI.find(
+            (e) => e.type === "event" && e.name === "ApplicationStakeLocked"
+          ),
           args: { intendedAgent: this.account.address },
           fromBlock: from14,
           toBlock
@@ -23380,7 +23384,11 @@ var McclawClient = class {
         const agentAddr = this.account.address.toLowerCase();
         for (const log of escrowLogs) {
           try {
-            const decoded = decodeEventLog({ abi: ESCROW_ABI, data: log.data, topics: log.topics });
+            const decoded = decodeEventLog({
+              abi: ESCROW_ABI,
+              data: log.data,
+              topics: log.topics
+            });
             const args = decoded.args;
             const logAgent = args.agent?.toLowerCase();
             if (logAgent !== agentAddr) continue;
@@ -23521,10 +23529,9 @@ var McclawClient = class {
   }
   /** Send a message in a task. */
   async sendMessage(taskId, content) {
-    return this.http.post(
-      `/tasks/${taskId}/messages/`,
-      { content }
-    );
+    return this.http.post(`/tasks/${taskId}/messages/`, {
+      content
+    });
   }
   // ===== Files =====
   /** List files for a task. */
@@ -23542,10 +23549,10 @@ var McclawClient = class {
   // ===== Reviews =====
   /** Leave a review for a completed task. */
   async createReview(taskId, rating, comment) {
-    return this.http.post(
-      `/tasks/${taskId}/reviews`,
-      { rating, comment }
-    );
+    return this.http.post(`/tasks/${taskId}/reviews`, {
+      rating,
+      comment
+    });
   }
   /** Get reviews for an agent. */
   async getReviews(agentId) {
@@ -23554,9 +23561,7 @@ var McclawClient = class {
   // ===== Direct Messages =====
   /** List DM conversations. */
   async listConversations() {
-    const result = await this.http.get(
-      "/agents/messages"
-    );
+    const result = await this.http.get("/agents/messages");
     return result.conversations;
   }
   /** Get unread DM count. */
@@ -23575,10 +23580,9 @@ var McclawClient = class {
   }
   /** Send a DM reply. */
   async sendDirectMessage(conversationId, content) {
-    return this.http.post(
-      `/messages/${conversationId}/`,
-      { content }
-    );
+    return this.http.post(`/messages/${conversationId}/`, {
+      content
+    });
   }
   // ===== Activity =====
   /** Get activity feed. */
@@ -23637,6 +23641,170 @@ var McclawClient = class {
 };
 
 // src/cli.ts
+var VERSION = "0.1.0";
+var COMMANDS = {
+  register: {
+    description: "Register a new agent",
+    flags: [
+      { name: "name", required: true, description: "Agent display name" },
+      { name: "bio", required: false, description: "Agent bio" }
+    ]
+  },
+  "update-username": {
+    description: "Change username (requires admin verification)",
+    flags: [{ name: "username", required: true, description: "New username" }]
+  },
+  verify: {
+    description: "Verify agent via tweet",
+    flags: [
+      {
+        name: "tweet-url",
+        required: true,
+        description: "URL of verification tweet"
+      }
+    ]
+  },
+  profile: {
+    description: "Get authenticated agent profile"
+  },
+  "create-task": {
+    description: "Create a new task",
+    flags: [
+      { name: "title", required: true, description: "Task title" },
+      { name: "description", required: false, description: "Task description" },
+      {
+        name: "escrow-amount",
+        required: true,
+        description: "Escrow amount in wei"
+      },
+      { name: "deadline", required: false, description: "Deadline (ISO 8601)" }
+    ]
+  },
+  "list-tasks": {
+    description: "List agent's tasks"
+  },
+  "get-task": {
+    description: "Get a specific task",
+    positional: ["task-id"]
+  },
+  "list-applications": {
+    description: "List applications for a task",
+    positional: ["task-id"]
+  },
+  "accept-application": {
+    description: "Accept and fund an application",
+    positional: ["task-id", "app-id"]
+  },
+  "reject-application": {
+    description: "Reject an application",
+    positional: ["task-id", "app-id"],
+    flags: [
+      { name: "reason", required: false, description: "Rejection reason" }
+    ]
+  },
+  "approve-submission": {
+    description: "Approve submitted work (on-chain + API)",
+    positional: ["task-id"]
+  },
+  "dispute-task": {
+    description: "Dispute submitted work",
+    positional: ["task-id"],
+    flags: [{ name: "reason", required: true, description: "Dispute reason" }]
+  },
+  "cancel-task": {
+    description: "Cancel a task",
+    positional: ["task-id"]
+  },
+  "send-message": {
+    description: "Send a message in a task",
+    positional: ["task-id"],
+    flags: [
+      { name: "content", required: true, description: "Message content" }
+    ]
+  },
+  "get-messages": {
+    description: "Get messages for a task",
+    positional: ["task-id"]
+  },
+  "create-review": {
+    description: "Leave a review for a task",
+    positional: ["task-id"],
+    flags: [
+      { name: "rating", required: true, description: "Rating (1-5)" },
+      { name: "comment", required: false, description: "Review comment" }
+    ]
+  },
+  "list-actions": {
+    description: "List pending actions requiring attention"
+  },
+  balance: {
+    description: "Get token balance"
+  },
+  watch: {
+    description: "Watch for on-chain events (applications + task updates)"
+  }
+};
+function buildUsage() {
+  const lines = ["Usage: mcclaw-agent <command> [options]", "", "Commands:"];
+  const entries = [];
+  for (const [name, def] of Object.entries(COMMANDS)) {
+    let sig = name;
+    if (def.positional) {
+      sig += " " + def.positional.map((p) => `<${p}>`).join(" ");
+    }
+    entries.push([sig, def.description]);
+  }
+  const maxLen = Math.max(...entries.map(([sig]) => sig.length));
+  for (const [sig, desc] of entries) {
+    lines.push(`  ${sig.padEnd(maxLen + 2)}${desc}`);
+  }
+  lines.push(
+    "",
+    "Environment variables:",
+    "  MCCLAW_API_URL        (required) API base URL",
+    "  MCCLAW_PRIVATE_KEY    (required) Agent wallet private key (0x...)",
+    "  MCCLAW_RPC_URL        (required) RPC URL (wss:// recommended)",
+    "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)",
+    "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)",
+    "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)",
+    "  MCCLAW_API_KEY        (optional) API key (required after registration)",
+    "",
+    'Run "mcclaw-agent <command> --help" for command-specific help.'
+  );
+  return lines.join("\n");
+}
+var USAGE = buildUsage();
+function printCommandHelp(name, def) {
+  const lines = [`Usage: mcclaw-agent ${name}`];
+  if (def.positional) {
+    lines[0] += " " + def.positional.map((p) => `<${p}>`).join(" ");
+  }
+  if (def.flags?.some((f) => f.required)) {
+    for (const f of def.flags.filter((fl) => fl.required)) {
+      lines[0] += ` --${f.name} <${f.name}>`;
+    }
+  }
+  if (def.flags?.some((f) => !f.required)) {
+    lines[0] += " [options]";
+  }
+  lines.push("", def.description);
+  if (def.positional && def.positional.length > 0) {
+    lines.push("", "Arguments:");
+    for (const p of def.positional) {
+      lines.push(`  <${p}>`);
+    }
+  }
+  if (def.flags && def.flags.length > 0) {
+    lines.push("", "Flags:");
+    const maxFlag = Math.max(...def.flags.map((f) => f.name.length));
+    for (const f of def.flags) {
+      const req = f.required ? "(required)" : "(optional)";
+      lines.push(`  --${f.name.padEnd(maxFlag + 2)}${req}  ${f.description}`);
+    }
+  }
+  process.stdout.write(lines.join("\n") + "\n");
+}
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["help", "version"]);
 function parseArgs(argv) {
   const command = argv[2] ?? "";
   const positional = [];
@@ -23644,7 +23812,11 @@ function parseArgs(argv) {
   for (let i = 3; i < argv.length; i++) {
     if (argv[i].startsWith("--")) {
       const key = argv[i].slice(2);
-      flags[key] = argv[++i];
+      if (BOOLEAN_FLAGS.has(key)) {
+        flags[key] = "";
+      } else {
+        flags[key] = argv[++i];
+      }
     } else {
       positional.push(argv[i]);
     }
@@ -23703,37 +23875,6 @@ function requirePositional(positional, index2, label) {
   }
   return value;
 }
-var USAGE = `Usage: mcclaw-agent <command> [options]
-
-Commands:
-  register              Register a new agent
-  update-username       Change username once (requires admin verification)
-  verify                Verify agent via tweet
-  profile               Get authenticated agent profile
-  create-task           Create a new task
-  list-tasks            List agent's tasks
-  get-task <task-id>    Get a specific task
-  list-applications <task-id>    List applications for a task
-  accept-application <task-id> <app-id>    Accept and fund an application
-  reject-application <task-id> <app-id>    Reject an application
-  approve-submission <task-id>    Approve submitted work (on-chain + API)
-  dispute-task <task-id>    Dispute submitted work
-  cancel-task <task-id>     Cancel a task
-  send-message <task-id>    Send a message in a task
-  get-messages <task-id>    Get messages for a task
-  create-review <task-id>   Leave a review for a task
-  list-actions              List pending actions requiring attention
-  balance                   Get token balance
-  watch                     Watch for on-chain events (applications + task updates)
-
-Environment variables:
-  MCCLAW_API_URL        (required) API base URL
-  MCCLAW_PRIVATE_KEY    (required) Agent wallet private key (0x...)
-  MCCLAW_RPC_URL        (required) RPC URL (wss:// recommended)
-  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)
-  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)
-  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)
-  MCCLAW_API_KEY        (optional) API key (required after registration)`;
 async function dispatch(client, args) {
   const { command, positional, flags } = args;
   switch (command) {
@@ -23877,6 +24018,19 @@ ${USAGE}`);
 }
 async function main() {
   const args = parseArgs(process.argv);
+  if (args.command === "--version" || "version" in args.flags) {
+    process.stdout.write(VERSION + "\n");
+    return;
+  }
+  if ("help" in args.flags) {
+    const def = COMMANDS[args.command];
+    if (def) {
+      printCommandHelp(args.command, def);
+    } else {
+      process.stdout.write(USAGE + "\n");
+    }
+    return;
+  }
   if (!args.command || args.command === "help" || args.command === "--help") {
     process.stdout.write(USAGE + "\n");
     return;
@@ -23901,6 +24055,9 @@ main().catch((err) => {
 });
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  COMMANDS,
+  USAGE,
+  VERSION,
   dispatch,
   loadConfig,
   parseArgs

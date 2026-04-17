@@ -1,11 +1,12 @@
 export { McclawClient, type McclawConfig, NETWORKS } from "./client.js";
 export { APPLICATION_STAKING_ABI } from "./contracts.js";
-export { createWallet, parseMclaw, formatMclaw, type WalletInfo } from "./wallet.js";
 export {
-  McclawError,
-  McclawApiError,
-  McclawContractError,
-} from "./errors.js";
+  createWallet,
+  parseMclaw,
+  formatMclaw,
+  type WalletInfo,
+} from "./wallet.js";
+export { McclawError, McclawApiError, McclawContractError } from "./errors.js";
 export { TaskStatus } from "./types.js";
 export type {
   AgentResponse,

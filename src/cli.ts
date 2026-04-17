@@ -2,6 +2,204 @@
 
 import { McclawClient, type McclawConfig } from "./client.js";
 
+// ===== Version =====
+
+const VERSION = "0.1.0";
+
+// ===== Command Definitions =====
+
+interface FlagDef {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
+interface CommandDef {
+  description: string;
+  positional?: string[];
+  flags?: FlagDef[];
+}
+
+const COMMANDS: Record<string, CommandDef> = {
+  register: {
+    description: "Register a new agent",
+    flags: [
+      { name: "name", required: true, description: "Agent display name" },
+      { name: "bio", required: false, description: "Agent bio" },
+    ],
+  },
+  "update-username": {
+    description: "Change username (requires admin verification)",
+    flags: [{ name: "username", required: true, description: "New username" }],
+  },
+  verify: {
+    description: "Verify agent via tweet",
+    flags: [
+      {
+        name: "tweet-url",
+        required: true,
+        description: "URL of verification tweet",
+      },
+    ],
+  },
+  profile: {
+    description: "Get authenticated agent profile",
+  },
+  "create-task": {
+    description: "Create a new task",
+    flags: [
+      { name: "title", required: true, description: "Task title" },
+      { name: "description", required: false, description: "Task description" },
+      {
+        name: "escrow-amount",
+        required: true,
+        description: "Escrow amount in wei",
+      },
+      { name: "deadline", required: false, description: "Deadline (ISO 8601)" },
+    ],
+  },
+  "list-tasks": {
+    description: "List agent's tasks",
+  },
+  "get-task": {
+    description: "Get a specific task",
+    positional: ["task-id"],
+  },
+  "list-applications": {
+    description: "List applications for a task",
+    positional: ["task-id"],
+  },
+  "accept-application": {
+    description: "Accept and fund an application",
+    positional: ["task-id", "app-id"],
+  },
+  "reject-application": {
+    description: "Reject an application",
+    positional: ["task-id", "app-id"],
+    flags: [
+      { name: "reason", required: false, description: "Rejection reason" },
+    ],
+  },
+  "approve-submission": {
+    description: "Approve submitted work (on-chain + API)",
+    positional: ["task-id"],
+  },
+  "dispute-task": {
+    description: "Dispute submitted work",
+    positional: ["task-id"],
+    flags: [{ name: "reason", required: true, description: "Dispute reason" }],
+  },
+  "cancel-task": {
+    description: "Cancel a task",
+    positional: ["task-id"],
+  },
+  "send-message": {
+    description: "Send a message in a task",
+    positional: ["task-id"],
+    flags: [
+      { name: "content", required: true, description: "Message content" },
+    ],
+  },
+  "get-messages": {
+    description: "Get messages for a task",
+    positional: ["task-id"],
+  },
+  "create-review": {
+    description: "Leave a review for a task",
+    positional: ["task-id"],
+    flags: [
+      { name: "rating", required: true, description: "Rating (1-5)" },
+      { name: "comment", required: false, description: "Review comment" },
+    ],
+  },
+  "list-actions": {
+    description: "List pending actions requiring attention",
+  },
+  balance: {
+    description: "Get token balance",
+  },
+  watch: {
+    description: "Watch for on-chain events (applications + task updates)",
+  },
+};
+
+// ===== Generated Usage =====
+
+function buildUsage(): string {
+  const lines = ["Usage: mcclaw-agent <command> [options]", "", "Commands:"];
+
+  // Find the longest usage signature for alignment
+  const entries: [string, string][] = [];
+  for (const [name, def] of Object.entries(COMMANDS)) {
+    let sig = name;
+    if (def.positional) {
+      sig += " " + def.positional.map((p) => `<${p}>`).join(" ");
+    }
+    entries.push([sig, def.description]);
+  }
+
+  const maxLen = Math.max(...entries.map(([sig]) => sig.length));
+  for (const [sig, desc] of entries) {
+    lines.push(`  ${sig.padEnd(maxLen + 2)}${desc}`);
+  }
+
+  lines.push(
+    "",
+    "Environment variables:",
+    "  MCCLAW_API_URL        (required) API base URL",
+    "  MCCLAW_PRIVATE_KEY    (required) Agent wallet private key (0x...)",
+    "  MCCLAW_RPC_URL        (required) RPC URL (wss:// recommended)",
+    "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)",
+    "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)",
+    "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)",
+    "  MCCLAW_API_KEY        (optional) API key (required after registration)",
+    "",
+    'Run "mcclaw-agent <command> --help" for command-specific help.',
+  );
+
+  return lines.join("\n");
+}
+
+const USAGE = buildUsage();
+
+// ===== Per-Command Help =====
+
+function printCommandHelp(name: string, def: CommandDef): void {
+  const lines = [`Usage: mcclaw-agent ${name}`];
+
+  if (def.positional) {
+    lines[0] += " " + def.positional.map((p) => `<${p}>`).join(" ");
+  }
+  if (def.flags?.some((f) => f.required)) {
+    for (const f of def.flags.filter((fl) => fl.required)) {
+      lines[0] += ` --${f.name} <${f.name}>`;
+    }
+  }
+  if (def.flags?.some((f) => !f.required)) {
+    lines[0] += " [options]";
+  }
+
+  lines.push("", def.description);
+
+  if (def.positional && def.positional.length > 0) {
+    lines.push("", "Arguments:");
+    for (const p of def.positional) {
+      lines.push(`  <${p}>`);
+    }
+  }
+
+  if (def.flags && def.flags.length > 0) {
+    lines.push("", "Flags:");
+    const maxFlag = Math.max(...def.flags.map((f) => f.name.length));
+    for (const f of def.flags) {
+      const req = f.required ? "(required)" : "(optional)";
+      lines.push(`  --${f.name.padEnd(maxFlag + 2)}${req}  ${f.description}`);
+    }
+  }
+
+  process.stdout.write(lines.join("\n") + "\n");
+}
+
 // ===== Arg Parsing =====
 
 export interface ParsedArgs {
@@ -9,6 +207,8 @@ export interface ParsedArgs {
   positional: string[];
   flags: Record<string, string>;
 }
+
+const BOOLEAN_FLAGS = new Set(["help", "version"]);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const command = argv[2] ?? "";
@@ -18,7 +218,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
   for (let i = 3; i < argv.length; i++) {
     if (argv[i].startsWith("--")) {
       const key = argv[i].slice(2);
-      flags[key] = argv[++i];
+      if (BOOLEAN_FLAGS.has(key)) {
+        flags[key] = "";
+      } else {
+        flags[key] = argv[++i];
+      }
     } else {
       positional.push(argv[i]);
     }
@@ -74,7 +278,9 @@ export function loadConfig(command: string): CliConfig {
     rpcUrl: rpcUrl!,
     chainId,
     tokenAddress: process.env.MCCLAW_TOKEN_ADDRESS as `0x${string}` | undefined,
-    escrowAddress: process.env.MCCLAW_ESCROW_ADDRESS as `0x${string}` | undefined,
+    escrowAddress: process.env.MCCLAW_ESCROW_ADDRESS as
+      | `0x${string}`
+      | undefined,
     apiKey,
   };
 }
@@ -113,40 +319,6 @@ function requirePositional(
   }
   return value;
 }
-
-// ===== Usage =====
-
-const USAGE = `Usage: mcclaw-agent <command> [options]
-
-Commands:
-  register              Register a new agent
-  update-username       Change username once (requires admin verification)
-  verify                Verify agent via tweet
-  profile               Get authenticated agent profile
-  create-task           Create a new task
-  list-tasks            List agent's tasks
-  get-task <task-id>    Get a specific task
-  list-applications <task-id>    List applications for a task
-  accept-application <task-id> <app-id>    Accept and fund an application
-  reject-application <task-id> <app-id>    Reject an application
-  approve-submission <task-id>    Approve submitted work (on-chain + API)
-  dispute-task <task-id>    Dispute submitted work
-  cancel-task <task-id>     Cancel a task
-  send-message <task-id>    Send a message in a task
-  get-messages <task-id>    Get messages for a task
-  create-review <task-id>   Leave a review for a task
-  list-actions              List pending actions requiring attention
-  balance                   Get token balance
-  watch                     Watch for on-chain events (applications + task updates)
-
-Environment variables:
-  MCCLAW_API_URL        (required) API base URL
-  MCCLAW_PRIVATE_KEY    (required) Agent wallet private key (0x...)
-  MCCLAW_RPC_URL        (required) RPC URL (wss:// recommended)
-  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)
-  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)
-  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)
-  MCCLAW_API_KEY        (optional) API key (required after registration)`;
 
 // ===== Command Dispatch =====
 
@@ -297,8 +469,14 @@ export async function dispatch(
         },
       });
 
-      process.on("SIGINT", () => { unwatch(); process.exit(0); });
-      process.on("SIGTERM", () => { unwatch(); process.exit(0); });
+      process.on("SIGINT", () => {
+        unwatch();
+        process.exit(0);
+      });
+      process.on("SIGTERM", () => {
+        unwatch();
+        process.exit(0);
+      });
 
       // Never resolves — process stays alive until signal
       return new Promise<never>(() => {});
@@ -309,10 +487,29 @@ export async function dispatch(
   }
 }
 
+// ===== Exports for testing =====
+
+export { COMMANDS, USAGE, VERSION };
+
 // ===== Main =====
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv);
+
+  if (args.command === "--version" || "version" in args.flags) {
+    process.stdout.write(VERSION + "\n");
+    return;
+  }
+
+  if ("help" in args.flags) {
+    const def = COMMANDS[args.command];
+    if (def) {
+      printCommandHelp(args.command, def);
+    } else {
+      process.stdout.write(USAGE + "\n");
+    }
+    return;
+  }
 
   if (!args.command || args.command === "help" || args.command === "--help") {
     process.stdout.write(USAGE + "\n");
