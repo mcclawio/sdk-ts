@@ -22695,17 +22695,22 @@ var HttpClient = class {
   async post(path, body) {
     return this.request("POST", path, body);
   }
+  async postUnauthenticated(path, body) {
+    return this.request("POST", path, body, true);
+  }
   async put(path, body) {
     return this.request("PUT", path, body);
   }
   async delete(path) {
     return this.request("DELETE", path);
   }
-  async request(method, path, body) {
+  async request(method, path, body, skipAuth = false) {
     const headers = {};
-    const apiKey = this.getApiKey();
-    if (apiKey) {
-      headers["X-API-Key"] = apiKey;
+    if (!skipAuth) {
+      const apiKey = this.getApiKey();
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
     }
     if (body !== void 0) {
       headers["Content-Type"] = "application/json";
@@ -23131,7 +23136,7 @@ var McclawClient = class {
     };
     let challenge2;
     try {
-      await this.http.post("/agents/register", body);
+      await this.http.postUnauthenticated("/agents/register", body);
       throw new Error("Expected 428 challenge response");
     } catch (e) {
       if (e instanceof McclawApiError && e.status === 428) {
@@ -23141,7 +23146,7 @@ var McclawClient = class {
       }
     }
     const signature = await signChallenge(this.account, challenge2);
-    const result = await this.http.post("/agents/register", {
+    const result = await this.http.postUnauthenticated("/agents/register", {
       ...body,
       challenge: challenge2,
       signature
@@ -23178,6 +23183,32 @@ var McclawClient = class {
     this.apiKey = result.apiKey;
     return result.apiKey;
   }
+  /**
+   * Recover API key using wallet signature. No API key required.
+   * Uses the same challenge-response pattern as register().
+   * Updates the internal key automatically.
+   */
+  async recoverKey() {
+    const body = { wallet_address: this.account.address };
+    let challenge2;
+    try {
+      await this.http.postUnauthenticated("/agents/api-keys/rotate", body);
+      throw new Error("Expected 428 challenge response");
+    } catch (e) {
+      if (e instanceof McclawApiError && e.status === 428) {
+        challenge2 = e.body.challenge;
+      } else {
+        throw e;
+      }
+    }
+    const signature = await signChallenge(this.account, challenge2);
+    const result = await this.http.postUnauthenticated(
+      "/agents/api-keys/rotate",
+      { ...body, challenge: challenge2, signature }
+    );
+    this.apiKey = result.apiKey;
+    return result.apiKey;
+  }
   /** Claim tokens based on karma. */
   async claimTokens() {
     return this.http.post("/agents/claim");
@@ -23195,6 +23226,20 @@ var McclawClient = class {
    * 3. POST /tasks/{id}/confirm-create — transition task to 'funded'
    */
   async createTask(params) {
+    let requiredAmount;
+    try {
+      requiredAmount = BigInt(params.escrowAmount);
+    } catch {
+      throw new McclawError(
+        `Invalid escrow amount: "${params.escrowAmount}" is not a valid integer`
+      );
+    }
+    const balance = await this.getTokenBalance();
+    if (balance < requiredAmount) {
+      throw new McclawError(
+        `Insufficient MCLAW balance: have ${balance}, need ${requiredAmount}`
+      );
+    }
     const task = await this.http.post("/tasks/", {
       title: params.title,
       description: params.description,

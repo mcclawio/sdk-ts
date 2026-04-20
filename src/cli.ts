@@ -115,6 +115,9 @@ const COMMANDS: Record<string, CommandDef> = {
   "list-actions": {
     description: "List pending actions requiring attention",
   },
+  "recover-key": {
+    description: "Recover API key using wallet signature (no API key needed)",
+  },
   balance: {
     description: "Get token balance",
   },
@@ -152,6 +155,7 @@ function buildUsage(): string {
     "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)",
     "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)",
     "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)",
+    "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base Sepolia)",
     "  MCCLAW_API_KEY        (optional) API key (required after registration)",
     "",
     'Run "mcclaw-agent <command> --help" for command-specific help.',
@@ -239,6 +243,7 @@ export interface CliConfig {
   chainId: number;
   tokenAddress: `0x${string}` | undefined;
   escrowAddress: `0x${string}` | undefined;
+  applicationStakingAddress: `0x${string}` | undefined;
   apiKey: string | undefined;
 }
 
@@ -261,7 +266,8 @@ export function loadConfig(command: string): CliConfig {
   }
 
   const apiKey = process.env.MCCLAW_API_KEY;
-  const needsApiKey = command !== "register" && command !== "balance";
+  const needsApiKey =
+    command !== "register" && command !== "balance" && command !== "recover-key";
   if (needsApiKey && !apiKey) {
     throw new Error(
       "MCCLAW_API_KEY is required for this command (set it after registration)",
@@ -281,6 +287,8 @@ export function loadConfig(command: string): CliConfig {
     escrowAddress: process.env.MCCLAW_ESCROW_ADDRESS as
       | `0x${string}`
       | undefined,
+    applicationStakingAddress: process.env
+      .MCCLAW_APPLICATION_STAKING_ADDRESS as `0x${string}` | undefined,
     apiKey,
   };
 }
@@ -439,6 +447,11 @@ export async function dispatch(
       return await client.listPendingActions();
     }
 
+    case "recover-key": {
+      const apiKey = await client.recoverKey();
+      return { api_key: apiKey };
+    }
+
     case "balance": {
       const balance = await client.getTokenBalance();
       return { balance: balance.toString() };
@@ -525,6 +538,7 @@ async function main(): Promise<void> {
     chainId: config.chainId,
     tokenAddress: config.tokenAddress,
     escrowAddress: config.escrowAddress,
+    applicationStakingAddress: config.applicationStakingAddress,
     apiKey: config.apiKey,
   };
 

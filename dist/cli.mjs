@@ -22641,17 +22641,22 @@ var HttpClient = class {
   async post(path, body) {
     return this.request("POST", path, body);
   }
+  async postUnauthenticated(path, body) {
+    return this.request("POST", path, body, true);
+  }
   async put(path, body) {
     return this.request("PUT", path, body);
   }
   async delete(path) {
     return this.request("DELETE", path);
   }
-  async request(method, path, body) {
+  async request(method, path, body, skipAuth = false) {
     const headers = {};
-    const apiKey = this.getApiKey();
-    if (apiKey) {
-      headers["X-API-Key"] = apiKey;
+    if (!skipAuth) {
+      const apiKey = this.getApiKey();
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
     }
     if (body !== void 0) {
       headers["Content-Type"] = "application/json";
@@ -23065,7 +23070,7 @@ var McclawClient = class {
     };
     let challenge2;
     try {
-      await this.http.post("/agents/register", body);
+      await this.http.postUnauthenticated("/agents/register", body);
       throw new Error("Expected 428 challenge response");
     } catch (e) {
       if (e instanceof McclawApiError && e.status === 428) {
@@ -23075,7 +23080,7 @@ var McclawClient = class {
       }
     }
     const signature = await signChallenge(this.account, challenge2);
-    const result = await this.http.post("/agents/register", {
+    const result = await this.http.postUnauthenticated("/agents/register", {
       ...body,
       challenge: challenge2,
       signature
@@ -23112,6 +23117,32 @@ var McclawClient = class {
     this.apiKey = result.apiKey;
     return result.apiKey;
   }
+  /**
+   * Recover API key using wallet signature. No API key required.
+   * Uses the same challenge-response pattern as register().
+   * Updates the internal key automatically.
+   */
+  async recoverKey() {
+    const body = { wallet_address: this.account.address };
+    let challenge2;
+    try {
+      await this.http.postUnauthenticated("/agents/api-keys/rotate", body);
+      throw new Error("Expected 428 challenge response");
+    } catch (e) {
+      if (e instanceof McclawApiError && e.status === 428) {
+        challenge2 = e.body.challenge;
+      } else {
+        throw e;
+      }
+    }
+    const signature = await signChallenge(this.account, challenge2);
+    const result = await this.http.postUnauthenticated(
+      "/agents/api-keys/rotate",
+      { ...body, challenge: challenge2, signature }
+    );
+    this.apiKey = result.apiKey;
+    return result.apiKey;
+  }
   /** Claim tokens based on karma. */
   async claimTokens() {
     return this.http.post("/agents/claim");
@@ -23129,6 +23160,20 @@ var McclawClient = class {
    * 3. POST /tasks/{id}/confirm-create — transition task to 'funded'
    */
   async createTask(params) {
+    let requiredAmount;
+    try {
+      requiredAmount = BigInt(params.escrowAmount);
+    } catch {
+      throw new McclawError(
+        `Invalid escrow amount: "${params.escrowAmount}" is not a valid integer`
+      );
+    }
+    const balance = await this.getTokenBalance();
+    if (balance < requiredAmount) {
+      throw new McclawError(
+        `Insufficient MCLAW balance: have ${balance}, need ${requiredAmount}`
+      );
+    }
     const task = await this.http.post("/tasks/", {
       title: params.title,
       description: params.description,
@@ -23729,6 +23774,9 @@ var COMMANDS = {
   "list-actions": {
     description: "List pending actions requiring attention"
   },
+  "recover-key": {
+    description: "Recover API key using wallet signature (no API key needed)"
+  },
   balance: {
     description: "Get token balance"
   },
@@ -23759,6 +23807,7 @@ function buildUsage() {
     "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)",
     "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)",
     "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)",
+    "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base Sepolia)",
     "  MCCLAW_API_KEY        (optional) API key (required after registration)",
     "",
     'Run "mcclaw-agent <command> --help" for command-specific help.'
@@ -23829,7 +23878,7 @@ function loadConfig(command) {
     );
   }
   const apiKey = process.env.MCCLAW_API_KEY;
-  const needsApiKey = command !== "register" && command !== "balance";
+  const needsApiKey = command !== "register" && command !== "balance" && command !== "recover-key";
   if (needsApiKey && !apiKey) {
     throw new Error(
       "MCCLAW_API_KEY is required for this command (set it after registration)"
@@ -23843,6 +23892,7 @@ function loadConfig(command) {
     chainId,
     tokenAddress: process.env.MCCLAW_TOKEN_ADDRESS,
     escrowAddress: process.env.MCCLAW_ESCROW_ADDRESS,
+    applicationStakingAddress: process.env.MCCLAW_APPLICATION_STAKING_ADDRESS,
     apiKey
   };
 }
@@ -23963,6 +24013,10 @@ async function dispatch(client, args) {
     case "list-actions": {
       return await client.listPendingActions();
     }
+    case "recover-key": {
+      const apiKey = await client.recoverKey();
+      return { api_key: apiKey };
+    }
     case "balance": {
       const balance = await client.getTokenBalance();
       return { balance: balance.toString() };
@@ -24035,6 +24089,7 @@ async function main() {
     chainId: config.chainId,
     tokenAddress: config.tokenAddress,
     escrowAddress: config.escrowAddress,
+    applicationStakingAddress: config.applicationStakingAddress,
     apiKey: config.apiKey
   };
   const client = new McclawClient(clientConfig);

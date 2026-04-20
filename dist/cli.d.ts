@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { M as McclawClient } from './client-Bpkhv6N4.js';
+import { M as McclawClient } from './client-DQyMALZu.js';
 import 'viem';
 
 declare const VERSION = "0.1.0";
@@ -28,6 +28,7 @@ interface CliConfig {
     chainId: number;
     tokenAddress: `0x${string}` | undefined;
     escrowAddress: `0x${string}` | undefined;
+    applicationStakingAddress: `0x${string}` | undefined;
     apiKey: string | undefined;
 }
 declare function loadConfig(command: string): CliConfig;

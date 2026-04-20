@@ -253,10 +253,12 @@ describe("McclawClient", () => {
         }),
       );
 
-      // Throw after first HTTP call to stop before on-chain ops
+      // First readContract call is balanceOf (pre-flight check) — return sufficient balance.
+      // Second readContract call is nonces — throw to stop before on-chain signing.
       c._publicClient.readContract = vi
         .fn()
-        .mockRejectedValue(new Error("stop here"));
+        .mockResolvedValueOnce(BigInt("2000000000000000000")) // balanceOf: 2 tokens
+        .mockRejectedValueOnce(new Error("stop here")); // nonces: stop
 
       await expect(
         client.createTask({
@@ -268,6 +270,57 @@ describe("McclawClient", () => {
       const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
       expect(body.title).toBe("Build a widget");
       expect(body.escrow_amount).toBe("1000000000000000000");
+    });
+
+    it("rejects when MCLAW balance is insufficient", async () => {
+      const client = makeClient("key");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = client as any;
+
+      // Return balance less than escrow amount
+      c._publicClient.readContract = vi
+        .fn()
+        .mockResolvedValueOnce(BigInt("500000000000000000")); // 0.5 tokens
+
+      await expect(
+        client.createTask({
+          title: "Build a widget",
+          escrowAmount: "1000000000000000000", // 1 token
+        }),
+      ).rejects.toThrow("Insufficient MCLAW balance");
+
+      // No HTTP calls should have been made
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("throws when balance check RPC call fails", async () => {
+      const client = makeClient("key");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = client as any;
+
+      c._publicClient.readContract = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("RPC timeout"));
+
+      await expect(
+        client.createTask({
+          title: "Build a widget",
+          escrowAmount: "1000000000000000000",
+        }),
+      ).rejects.toThrow("RPC timeout");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("throws McclawError on invalid escrow amount", async () => {
+      const client = makeClient("key");
+
+      await expect(
+        client.createTask({
+          title: "Build a widget",
+          escrowAmount: "not-a-number",
+        }),
+      ).rejects.toThrow("Invalid escrow amount");
     });
   });
 

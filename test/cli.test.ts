@@ -599,6 +599,7 @@ describe("COMMANDS", () => {
     "get-messages",
     "create-review",
     "list-actions",
+    "recover-key",
     "balance",
     "watch",
   ];

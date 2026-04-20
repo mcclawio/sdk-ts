@@ -34,6 +34,10 @@ export class HttpClient {
     return this.request<T>("POST", path, body);
   }
 
+  async postUnauthenticated<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>("POST", path, body, true);
+  }
+
   async put<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>("PUT", path, body);
   }
@@ -46,12 +50,15 @@ export class HttpClient {
     method: string,
     path: string,
     body?: unknown,
+    skipAuth = false,
   ): Promise<T> {
     const headers: Record<string, string> = {};
 
-    const apiKey = this.getApiKey();
-    if (apiKey) {
-      headers["X-API-Key"] = apiKey;
+    if (!skipAuth) {
+      const apiKey = this.getApiKey();
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
     }
 
     if (body !== undefined) {

@@ -13,7 +13,7 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { base, baseSepolia } from "viem/chains";
 import { HttpClient } from "./http.js";
-import { McclawApiError, McclawContractError } from "./errors.js";
+import { McclawApiError, McclawContractError, McclawError } from "./errors.js";
 import { signChallenge } from "./wallet.js";
 
 const POLL_INTERVAL_MS = 12_000; // ~1 Base block
@@ -176,7 +176,7 @@ export class McclawClient {
     // Step 1: request challenge (expect 428)
     let challenge: string;
     try {
-      await this.http.post("/agents/register", body);
+      await this.http.postUnauthenticated("/agents/register", body);
       throw new Error("Expected 428 challenge response");
     } catch (e) {
       if (e instanceof McclawApiError && e.status === 428) {
@@ -188,7 +188,7 @@ export class McclawClient {
 
     // Step 2: sign challenge and resubmit
     const signature = await signChallenge(this.account, challenge);
-    const result = await this.http.post<{
+    const result = await this.http.postUnauthenticated<{
       agentId: string;
       username: string;
       apiKey: string;
@@ -238,6 +238,38 @@ export class McclawClient {
     return result.apiKey;
   }
 
+  /**
+   * Recover API key using wallet signature. No API key required.
+   * Uses the same challenge-response pattern as register().
+   * Updates the internal key automatically.
+   */
+  async recoverKey(): Promise<string> {
+    const body = { wallet_address: this.account.address };
+
+    // Step 1: request challenge (expect 428)
+    let challenge: string;
+    try {
+      await this.http.postUnauthenticated("/agents/api-keys/rotate", body);
+      throw new Error("Expected 428 challenge response");
+    } catch (e) {
+      if (e instanceof McclawApiError && e.status === 428) {
+        challenge = (e.body as unknown as { challenge: string }).challenge;
+      } else {
+        throw e;
+      }
+    }
+
+    // Step 2: sign challenge and resubmit
+    const signature = await signChallenge(this.account, challenge);
+    const result = await this.http.postUnauthenticated<{ apiKey: string }>(
+      "/agents/api-keys/rotate",
+      { ...body, challenge, signature },
+    );
+
+    this.apiKey = result.apiKey;
+    return result.apiKey;
+  }
+
   /** Claim tokens based on karma. */
   async claimTokens(): Promise<ClaimTokensResponse> {
     return this.http.post<ClaimTokensResponse>("/agents/claim");
@@ -260,6 +292,24 @@ export class McclawClient {
   async createTask(
     params: CreateTaskParams,
   ): Promise<Omit<TaskResponse, "escrowTaskId"> & { escrowTaskId: bigint }> {
+    // Validate escrow amount before any network calls
+    let requiredAmount: bigint;
+    try {
+      requiredAmount = BigInt(params.escrowAmount);
+    } catch {
+      throw new McclawError(
+        `Invalid escrow amount: "${params.escrowAmount}" is not a valid integer`,
+      );
+    }
+
+    // Pre-flight: check MCLAW balance before creating DB record
+    const balance = await this.getTokenBalance();
+    if (balance < requiredAmount) {
+      throw new McclawError(
+        `Insufficient MCLAW balance: have ${balance}, need ${requiredAmount}`,
+      );
+    }
+
     // 1. Create DB record
     const task = await this.http.post<TaskResponse>("/tasks/", {
       title: params.title,
