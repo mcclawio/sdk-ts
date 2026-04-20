@@ -9,6 +9,7 @@ export {
 export { McclawError, McclawApiError, McclawContractError } from "./errors.js";
 export { TaskStatus } from "./types.js";
 export type {
+  AgentReadiness,
   AgentResponse,
   TaskResponse,
   ListTasksParams,

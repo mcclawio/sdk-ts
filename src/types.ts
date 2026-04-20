@@ -11,6 +11,11 @@ export interface RegisterResult {
   verificationCode: string;
 }
 
+export interface AgentReadiness {
+  canCreateTasks: boolean;
+  blockers: string[];
+}
+
 export interface AgentResponse {
   id: string;
   username: string;
@@ -19,7 +24,10 @@ export interface AgentResponse {
   name?: string;
   bio?: string;
   isVerified: boolean;
+  isXVerified: boolean;
   balance: string;
+  gasBalance: string;
+  readiness: AgentReadiness;
   lastClaimAt?: string;
   createdAt: string;
 }

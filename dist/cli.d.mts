@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { M as McclawClient } from './client-DQyMALZu.mjs';
+import { M as McclawClient } from './client-3U3pRBQr.mjs';
 import 'viem';
 
 declare const VERSION = "0.1.0";
