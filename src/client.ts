@@ -11,7 +11,7 @@ import {
   decodeEventLog,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { base, baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import { HttpClient } from "./http.js";
 import { McclawApiError, McclawContractError, McclawError } from "./errors.js";
 import { signChallenge } from "./wallet.js";
@@ -20,18 +20,18 @@ const POLL_INTERVAL_MS = 12_000; // ~1 Base block
 
 const KNOWN_CHAINS: Record<number, Chain> = {
   [base.id]: base,
-  [baseSepolia.id]: baseSepolia,
 };
 
 /** Network presets with known contract addresses. */
 export const NETWORKS = {
-  baseSepolia: {
-    chainId: baseSepolia.id,
-    tokenAddress: "0xAF92ea1d98fFB6bb1331E6b8Cd6904f606f5a4BE" as `0x${string}`,
+  base: {
+    chainId: base.id,
+    tokenAddress:
+      "0x7a1c46ca55a420c2c7111e505acdc8b4cdca7e9b" as `0x${string}`,
     escrowAddress:
-      "0xd8aE33B1A63ee0BfF2c08Ab16F7F177F0354c346" as `0x${string}`,
+      "0xc024f4e0fd30d0c99f69f6683023fd5559dc89b4" as `0x${string}`,
     applicationStakingAddress:
-      "0x2aA748156f063489621e7315a44a459d83e89042" as `0x${string}`,
+      "0x489cb7e9ecaa78e3ca8c0472cf23babc926c6fab" as `0x${string}`,
   },
 } as const;
 
@@ -84,11 +84,11 @@ export interface McclawConfig {
   /** HTTP or WebSocket RPC URL. Use wss:// to enable WebSocket event subscriptions. */
   rpcUrl: string;
   chainId?: number;
-  /** Defaults to Base Sepolia deployment. */
+  /** Defaults to Base mainnet deployment. */
   tokenAddress?: `0x${string}`;
-  /** Defaults to Base Sepolia deployment. */
+  /** Defaults to Base mainnet deployment. */
   escrowAddress?: `0x${string}`;
-  /** Defaults to Base Sepolia deployment. */
+  /** Defaults to Base mainnet deployment. */
   applicationStakingAddress?: `0x${string}`;
   apiKey?: string;
 }
@@ -108,14 +108,12 @@ export class McclawClient {
   constructor(config: McclawConfig) {
     this.account = privateKeyToAccount(config.privateKey);
     this.apiKey = config.apiKey;
-    this.tokenAddress =
-      config.tokenAddress ?? NETWORKS.baseSepolia.tokenAddress;
-    this.escrowAddress =
-      config.escrowAddress ?? NETWORKS.baseSepolia.escrowAddress;
+    this.tokenAddress = config.tokenAddress ?? NETWORKS.base.tokenAddress;
+    this.escrowAddress = config.escrowAddress ?? NETWORKS.base.escrowAddress;
     this.applicationStakingAddress =
       config.applicationStakingAddress ??
-      NETWORKS.baseSepolia.applicationStakingAddress;
-    this.chainId = config.chainId ?? NETWORKS.baseSepolia.chainId;
+      NETWORKS.base.applicationStakingAddress;
+    this.chainId = config.chainId ?? NETWORKS.base.chainId;
     this.isWebSocket =
       config.rpcUrl.startsWith("wss://") || config.rpcUrl.startsWith("ws://");
 
@@ -131,9 +129,9 @@ export class McclawClient {
         rpcUrls: { default: { http: [config.rpcUrl] } },
       });
 
-    // Cast needed: baseSepolia is an OP Stack chain whose deposit tx type
-    // isn't in the generic PublicClient/WalletClient. We only use standard
-    // EVM operations so this is safe.
+    // Cast needed: Base is an OP Stack chain whose deposit tx type isn't in
+    // the generic PublicClient/WalletClient. We only use standard EVM
+    // operations so this is safe.
     this._publicClient = createPublicClient({
       chain,
       transport,

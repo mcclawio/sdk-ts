@@ -39,7 +39,7 @@ function makeClient(apiKey?: string): McclawClient {
   return new McclawClient({
     apiBaseUrl: "https://test.mcclaw.io/api/v1",
     privateKey: TEST_WALLET.privateKey,
-    rpcUrl: "https://sepolia.base.org",
+    rpcUrl: "https://mainnet.base.org",
     tokenAddress: "0x0000000000000000000000000000000000000001",
     escrowAddress: "0x0000000000000000000000000000000000000002",
     apiKey,

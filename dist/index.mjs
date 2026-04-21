@@ -22564,68 +22564,6 @@ var basePreconf = /* @__PURE__ */ defineChain({
   }
 });
 
-// node_modules/viem/_esm/chains/definitions/baseSepolia.js
-var sourceId2 = 11155111;
-var baseSepolia = /* @__PURE__ */ defineChain({
-  ...chainConfig,
-  id: 84532,
-  network: "base-sepolia",
-  name: "Base Sepolia",
-  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: ["https://sepolia.base.org"]
-    }
-  },
-  blockExplorers: {
-    default: {
-      name: "Basescan",
-      url: "https://sepolia.basescan.org",
-      apiUrl: "https://api-sepolia.basescan.org/api"
-    }
-  },
-  contracts: {
-    ...chainConfig.contracts,
-    disputeGameFactory: {
-      [sourceId2]: {
-        address: "0xd6E6dBf4F7EA0ac412fD8b65ED297e64BB7a06E1"
-      }
-    },
-    l2OutputOracle: {
-      [sourceId2]: {
-        address: "0x84457ca9D0163FbC4bbfe4Dfbb20ba46e48DF254"
-      }
-    },
-    portal: {
-      [sourceId2]: {
-        address: "0x49f53e41452c74589e85ca1677426ba426459e85",
-        blockCreated: 4446677
-      }
-    },
-    l1StandardBridge: {
-      [sourceId2]: {
-        address: "0xfd0Bf71F60660E2f608ed56e1659C450eB113120",
-        blockCreated: 4446677
-      }
-    },
-    multicall3: {
-      address: "0xca11bde05977b3631167028862be2a173976ca11",
-      blockCreated: 1059647
-    }
-  },
-  testnet: true,
-  sourceId: sourceId2
-});
-var baseSepoliaPreconf = /* @__PURE__ */ defineChain({
-  ...baseSepolia,
-  experimental_preconfirmationTime: 200,
-  rpcUrls: {
-    default: {
-      http: ["https://sepolia-preconf.base.org"]
-    }
-  }
-});
-
 // src/errors.ts
 var McclawError = class extends Error {
   constructor(message) {
@@ -23060,15 +22998,14 @@ function buildPermitDomain(tokenAddress, chainId) {
 // src/client.ts
 var POLL_INTERVAL_MS = 12e3;
 var KNOWN_CHAINS = {
-  [base.id]: base,
-  [baseSepolia.id]: baseSepolia
+  [base.id]: base
 };
 var NETWORKS = {
-  baseSepolia: {
-    chainId: baseSepolia.id,
-    tokenAddress: "0xAF92ea1d98fFB6bb1331E6b8Cd6904f606f5a4BE",
-    escrowAddress: "0xd8aE33B1A63ee0BfF2c08Ab16F7F177F0354c346",
-    applicationStakingAddress: "0x2aA748156f063489621e7315a44a459d83e89042"
+  base: {
+    chainId: base.id,
+    tokenAddress: "0x7a1c46ca55a420c2c7111e505acdc8b4cdca7e9b",
+    escrowAddress: "0xc024f4e0fd30d0c99f69f6683023fd5559dc89b4",
+    applicationStakingAddress: "0x489cb7e9ecaa78e3ca8c0472cf23babc926c6fab"
   }
 };
 function makeTransport(url) {
@@ -23088,10 +23025,10 @@ var McclawClient = class {
   constructor(config) {
     this.account = privateKeyToAccount(config.privateKey);
     this.apiKey = config.apiKey;
-    this.tokenAddress = config.tokenAddress ?? NETWORKS.baseSepolia.tokenAddress;
-    this.escrowAddress = config.escrowAddress ?? NETWORKS.baseSepolia.escrowAddress;
-    this.applicationStakingAddress = config.applicationStakingAddress ?? NETWORKS.baseSepolia.applicationStakingAddress;
-    this.chainId = config.chainId ?? NETWORKS.baseSepolia.chainId;
+    this.tokenAddress = config.tokenAddress ?? NETWORKS.base.tokenAddress;
+    this.escrowAddress = config.escrowAddress ?? NETWORKS.base.escrowAddress;
+    this.applicationStakingAddress = config.applicationStakingAddress ?? NETWORKS.base.applicationStakingAddress;
+    this.chainId = config.chainId ?? NETWORKS.base.chainId;
     this.isWebSocket = config.rpcUrl.startsWith("wss://") || config.rpcUrl.startsWith("ws://");
     this.http = new HttpClient(config.apiBaseUrl, () => this.apiKey);
     const transport = makeTransport(config.rpcUrl);

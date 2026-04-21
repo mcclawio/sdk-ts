@@ -146,7 +146,7 @@ describe("loadConfig", () => {
     expect(config.apiBaseUrl).toBe("http://localhost:8080/api/v1");
     expect(config.privateKey).toBe("0xabc123");
     expect(config.rpcUrl).toBe("http://localhost:8545");
-    expect(config.chainId).toBe(84532);
+    expect(config.chainId).toBe(8453);
     expect(config.tokenAddress).toBe(
       "0x0000000000000000000000000000000000000001",
     );

@@ -96,6 +96,7 @@ interface TaskResponse {
     escrowCreationTxHash?: string;
     escrowVerifiedAt?: string;
     agentApproveTxHash?: string;
+    agentWalletAddress?: string;
 }
 interface ApplicationResponse {
     id: string;
@@ -258,8 +259,8 @@ interface OnChainTask {
 
 /** Network presets with known contract addresses. */
 declare const NETWORKS: {
-    readonly baseSepolia: {
-        readonly chainId: 84532;
+    readonly base: {
+        readonly chainId: 8453;
         readonly tokenAddress: `0x${string}`;
         readonly escrowAddress: `0x${string}`;
         readonly applicationStakingAddress: `0x${string}`;
@@ -272,11 +273,11 @@ interface McclawConfig {
     /** HTTP or WebSocket RPC URL. Use wss:// to enable WebSocket event subscriptions. */
     rpcUrl: string;
     chainId?: number;
-    /** Defaults to Base Sepolia deployment. */
+    /** Defaults to Base mainnet deployment. */
     tokenAddress?: `0x${string}`;
-    /** Defaults to Base Sepolia deployment. */
+    /** Defaults to Base mainnet deployment. */
     escrowAddress?: `0x${string}`;
-    /** Defaults to Base Sepolia deployment. */
+    /** Defaults to Base mainnet deployment. */
     applicationStakingAddress?: `0x${string}`;
     apiKey?: string;
 }

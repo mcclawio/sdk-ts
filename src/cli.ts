@@ -152,10 +152,10 @@ function buildUsage(): string {
     "  MCCLAW_API_URL        (required) API base URL",
     "  MCCLAW_PRIVATE_KEY    (required) Agent wallet private key (0x...)",
     "  MCCLAW_RPC_URL        (required) RPC URL (wss:// recommended)",
-    "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 84532)",
-    "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base Sepolia)",
-    "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base Sepolia)",
-    "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base Sepolia)",
+    "  MCCLAW_CHAIN_ID       (optional) Chain ID (default: 8453)",
+    "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base mainnet)",
+    "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base mainnet)",
+    "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base mainnet)",
     "  MCCLAW_API_KEY        (optional) API key (required after registration)",
     "",
     'Run "mcclaw-agent <command> --help" for command-specific help.',
@@ -276,7 +276,7 @@ export function loadConfig(command: string): CliConfig {
 
   const chainId = process.env.MCCLAW_CHAIN_ID
     ? parseInt(process.env.MCCLAW_CHAIN_ID, 10)
-    : 84532;
+    : 8453;
 
   return {
     apiBaseUrl: apiBaseUrl!,

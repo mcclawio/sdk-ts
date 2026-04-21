@@ -109,6 +109,7 @@ export interface TaskResponse {
   escrowCreationTxHash?: string;
   escrowVerifiedAt?: string;
   agentApproveTxHash?: string;
+  agentWalletAddress?: string;
 }
 
 // ===== Application Types =====
