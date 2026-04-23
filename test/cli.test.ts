@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mkdirSync, writeFileSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import {
   parseArgs,
   loadConfig,
   dispatch,
+  getConfigDir,
+  loadConfigFile,
+  saveConfig,
   COMMANDS,
   USAGE,
   VERSION,
@@ -120,13 +127,17 @@ describe("parseArgs", () => {
 
 describe("loadConfig", () => {
   const originalEnv = process.env;
+  let tmpDir: string;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    tmpDir = mkdtempSync(join(tmpdir(), "mcclaw-test-"));
+    process.env.XDG_CONFIG_HOME = tmpDir; // isolate from real config file
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 
   const setAllEnvVars = () => {
@@ -575,6 +586,160 @@ describe("dispatch", () => {
         flags: {},
       }),
     ).rejects.toThrow("Missing required flag: --rating");
+  });
+});
+
+// ===== Config File =====
+
+describe("getConfigDir", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("uses XDG_CONFIG_HOME when set", () => {
+    process.env.XDG_CONFIG_HOME = "/custom/config";
+    expect(getConfigDir()).toBe("/custom/config/mcclaw");
+  });
+
+  it("defaults to ~/.config when XDG_CONFIG_HOME is unset", () => {
+    delete process.env.XDG_CONFIG_HOME;
+    const dir = getConfigDir();
+    expect(dir).toMatch(/\/\.config\/mcclaw$/);
+  });
+});
+
+describe("loadConfigFile", () => {
+  const originalEnv = process.env;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    tmpDir = mkdtempSync(join(tmpdir(), "mcclaw-test-"));
+    process.env.XDG_CONFIG_HOME = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns empty object when file does not exist", () => {
+    expect(loadConfigFile()).toEqual({});
+  });
+
+  it("parses KEY=VALUE lines", () => {
+    const dir = join(tmpDir, "mcclaw");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "mcclaw.env"),
+      "MCCLAW_API_KEY=abc123\nMCCLAW_AGENT_ID=agent-1\n",
+    );
+    expect(loadConfigFile()).toEqual({
+      MCCLAW_API_KEY: "abc123",
+      MCCLAW_AGENT_ID: "agent-1",
+    });
+  });
+
+  it("skips blank lines and comments", () => {
+    const dir = join(tmpDir, "mcclaw");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "mcclaw.env"),
+      "# comment\n\nMCCLAW_API_KEY=key1\n\n# another\n",
+    );
+    expect(loadConfigFile()).toEqual({ MCCLAW_API_KEY: "key1" });
+  });
+
+  it("handles values containing =", () => {
+    const dir = join(tmpDir, "mcclaw");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "mcclaw.env"), "FOO=bar=baz\n");
+    expect(loadConfigFile()).toEqual({ FOO: "bar=baz" });
+  });
+});
+
+describe("saveConfig", () => {
+  const originalEnv = process.env;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    tmpDir = mkdtempSync(join(tmpdir(), "mcclaw-test-"));
+    process.env.XDG_CONFIG_HOME = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("creates directory and writes file", () => {
+    const path = saveConfig({ MCCLAW_API_KEY: "secret" });
+    expect(path).toBe(join(tmpDir, "mcclaw", "mcclaw.env"));
+    const content = readFileSync(path, "utf-8");
+    expect(content).toBe("MCCLAW_API_KEY=secret\n");
+  });
+
+  it("sets file mode to 0o600", () => {
+    const path = saveConfig({ MCCLAW_API_KEY: "secret" });
+    const stat = statSync(path);
+    expect(stat.mode & 0o777).toBe(0o600);
+  });
+
+  it("merges with existing values", () => {
+    saveConfig({ MCCLAW_API_KEY: "key1", MCCLAW_AGENT_ID: "agent-1" });
+    saveConfig({ MCCLAW_API_KEY: "key2" });
+    const result = loadConfigFile();
+    expect(result).toEqual({
+      MCCLAW_API_KEY: "key2",
+      MCCLAW_AGENT_ID: "agent-1",
+    });
+  });
+});
+
+describe("loadConfig with config file fallback", () => {
+  const originalEnv = process.env;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    tmpDir = mkdtempSync(join(tmpdir(), "mcclaw-test-"));
+    process.env.XDG_CONFIG_HOME = tmpDir;
+    process.env.MCCLAW_API_URL = "http://localhost:8080/api/v1";
+    process.env.MCCLAW_PRIVATE_KEY = "0xabc123";
+    process.env.MCCLAW_RPC_URL = "http://localhost:8545";
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("reads API key from config file when env var is unset", () => {
+    delete process.env.MCCLAW_API_KEY;
+    saveConfig({ MCCLAW_API_KEY: "file-key" });
+    const config = loadConfig("profile");
+    expect(config.apiKey).toBe("file-key");
+  });
+
+  it("env var takes precedence over config file", () => {
+    process.env.MCCLAW_API_KEY = "env-key";
+    saveConfig({ MCCLAW_API_KEY: "file-key" });
+    const config = loadConfig("profile");
+    expect(config.apiKey).toBe("env-key");
+  });
+
+  it("still throws when API key is missing from both sources", () => {
+    delete process.env.MCCLAW_API_KEY;
+    expect(() => loadConfig("profile")).toThrow(
+      "MCCLAW_API_KEY is required for this command",
+    );
   });
 });
 

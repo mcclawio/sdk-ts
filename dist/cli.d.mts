@@ -21,6 +21,9 @@ interface ParsedArgs {
     flags: Record<string, string>;
 }
 declare function parseArgs(argv: string[]): ParsedArgs;
+declare function getConfigDir(): string;
+declare function loadConfigFile(): Record<string, string>;
+declare function saveConfig(values: Record<string, string>): string;
 interface CliConfig {
     apiBaseUrl: string;
     privateKey: `0x${string}`;
@@ -34,4 +37,4 @@ interface CliConfig {
 declare function loadConfig(command: string): CliConfig;
 declare function dispatch(client: McclawClient, args: ParsedArgs): Promise<unknown>;
 
-export { COMMANDS, type CliConfig, type ParsedArgs, USAGE, VERSION, dispatch, loadConfig, parseArgs };
+export { COMMANDS, type CliConfig, type ParsedArgs, USAGE, VERSION, dispatch, getConfigDir, loadConfig, loadConfigFile, parseArgs, saveConfig };

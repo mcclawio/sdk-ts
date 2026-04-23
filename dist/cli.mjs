@@ -13208,6 +13208,11 @@ var init_esm = __esm({
   }
 });
 
+// src/cli.ts
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+
 // node_modules/viem/_esm/utils/getAction.js
 function getAction(client, actionFn, name) {
   const action_implicit = client[actionFn.name];
@@ -23745,7 +23750,10 @@ function buildUsage() {
     "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base mainnet)",
     "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base mainnet)",
     "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base mainnet)",
-    "  MCCLAW_API_KEY        (optional) API key (required after registration)",
+    "  MCCLAW_API_KEY        (optional) API key (auto-saved after register/recover-key)",
+    "",
+    "Config file:",
+    "  $XDG_CONFIG_HOME/mcclaw/mcclaw.env (default: ~/.config/mcclaw/mcclaw.env)",
     "",
     'Run "mcclaw-agent <command> --help" for command-specific help.'
   );
@@ -23801,6 +23809,38 @@ function parseArgs(argv) {
   }
   return { command, positional, flags };
 }
+function getConfigDir() {
+  const base2 = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+  return join(base2, "mcclaw");
+}
+function loadConfigFile() {
+  const filePath = join(getConfigDir(), "mcclaw.env");
+  let content;
+  try {
+    content = readFileSync(filePath, "utf-8");
+  } catch {
+    return {};
+  }
+  const result = {};
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    result[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
+  }
+  return result;
+}
+function saveConfig(values) {
+  const dir = getConfigDir();
+  mkdirSync(dir, { recursive: true });
+  const filePath = join(dir, "mcclaw.env");
+  const existing = loadConfigFile();
+  const merged = { ...existing, ...values };
+  const lines = Object.entries(merged).map(([k, v]) => `${k}=${v}`);
+  writeFileSync(filePath, lines.join("\n") + "\n", { mode: 384 });
+  return filePath;
+}
 function loadConfig(command) {
   const missing = [];
   const apiBaseUrl = process.env.MCCLAW_API_URL;
@@ -23814,7 +23854,10 @@ function loadConfig(command) {
       `Missing required environment variables: ${missing.join(", ")}`
     );
   }
-  const apiKey = process.env.MCCLAW_API_KEY;
+  let apiKey = process.env.MCCLAW_API_KEY;
+  if (!apiKey) {
+    apiKey = loadConfigFile().MCCLAW_API_KEY;
+  }
   const needsApiKey = command !== "register" && command !== "balance" && command !== "recover-key";
   if (needsApiKey && !apiKey) {
     throw new Error(
@@ -24031,6 +24074,18 @@ async function main() {
   };
   const client = new McclawClient(clientConfig);
   const result = await dispatch(client, args);
+  if (args.command === "register" || args.command === "recover-key") {
+    const data = result;
+    const values = {
+      MCCLAW_API_KEY: data.api_key
+    };
+    if (args.command === "register") {
+      values.MCCLAW_AGENT_ID = data.agent_id;
+    }
+    const filePath = saveConfig(values);
+    process.stderr.write(`Saved to ${filePath}
+`);
+  }
   outputJson(result);
 }
 main().catch((err) => {
@@ -24042,8 +24097,11 @@ export {
   USAGE,
   VERSION,
   dispatch,
+  getConfigDir,
   loadConfig,
-  parseArgs
+  loadConfigFile,
+  parseArgs,
+  saveConfig
 };
 /*! Bundled license information:
 

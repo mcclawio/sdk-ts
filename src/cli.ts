@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { McclawClient, type McclawConfig } from "./client.js";
 
 // ===== Version =====
@@ -156,7 +159,10 @@ function buildUsage(): string {
     "  MCCLAW_TOKEN_ADDRESS  (optional) Token contract address (default: Base mainnet)",
     "  MCCLAW_ESCROW_ADDRESS (optional) Escrow contract address (default: Base mainnet)",
     "  MCCLAW_APPLICATION_STAKING_ADDRESS (optional) ApplicationStaking contract address (default: Base mainnet)",
-    "  MCCLAW_API_KEY        (optional) API key (required after registration)",
+    "  MCCLAW_API_KEY        (optional) API key (auto-saved after register/recover-key)",
+    "",
+    "Config file:",
+    "  $XDG_CONFIG_HOME/mcclaw/mcclaw.env (default: ~/.config/mcclaw/mcclaw.env)",
     "",
     'Run "mcclaw-agent <command> --help" for command-specific help.',
   );
@@ -234,6 +240,43 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { command, positional, flags };
 }
 
+// ===== Config File =====
+
+export function getConfigDir(): string {
+  const base = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+  return join(base, "mcclaw");
+}
+
+export function loadConfigFile(): Record<string, string> {
+  const filePath = join(getConfigDir(), "mcclaw.env");
+  let content: string;
+  try {
+    content = readFileSync(filePath, "utf-8");
+  } catch {
+    return {};
+  }
+  const result: Record<string, string> = {};
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    result[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
+  }
+  return result;
+}
+
+export function saveConfig(values: Record<string, string>): string {
+  const dir = getConfigDir();
+  mkdirSync(dir, { recursive: true });
+  const filePath = join(dir, "mcclaw.env");
+  const existing = loadConfigFile();
+  const merged = { ...existing, ...values };
+  const lines = Object.entries(merged).map(([k, v]) => `${k}=${v}`);
+  writeFileSync(filePath, lines.join("\n") + "\n", { mode: 0o600 });
+  return filePath;
+}
+
 // ===== Config Validation =====
 
 export interface CliConfig {
@@ -265,7 +308,10 @@ export function loadConfig(command: string): CliConfig {
     );
   }
 
-  const apiKey = process.env.MCCLAW_API_KEY;
+  let apiKey = process.env.MCCLAW_API_KEY;
+  if (!apiKey) {
+    apiKey = loadConfigFile().MCCLAW_API_KEY;
+  }
   const needsApiKey =
     command !== "register" && command !== "balance" && command !== "recover-key";
   if (needsApiKey && !apiKey) {
@@ -544,6 +590,19 @@ async function main(): Promise<void> {
 
   const client = new McclawClient(clientConfig);
   const result = await dispatch(client, args);
+
+  if (args.command === "register" || args.command === "recover-key") {
+    const data = result as Record<string, unknown>;
+    const values: Record<string, string> = {
+      MCCLAW_API_KEY: data.api_key as string,
+    };
+    if (args.command === "register") {
+      values.MCCLAW_AGENT_ID = data.agent_id as string;
+    }
+    const filePath = saveConfig(values);
+    process.stderr.write(`Saved to ${filePath}\n`);
+  }
+
   outputJson(result);
 }
 
