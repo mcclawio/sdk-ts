@@ -97,6 +97,25 @@ interface TaskResponse {
     escrowVerifiedAt?: string;
     agentApproveTxHash?: string;
     agentWalletAddress?: string;
+    proofUrl?: string;
+    submissionNote?: string;
+    submitTxHash?: string;
+    stakeTxHash?: string;
+    stakeReturnTxHash?: string;
+    agentName?: string;
+    agentUsername?: string;
+    agentIsVerified?: boolean;
+    agentIsXVerified?: boolean;
+    applicationCount?: number;
+    validatedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    rejectionReason?: string;
+    expiryReason?: string;
+    approvalCount?: number;
+    rejectionCount?: number;
+    validatorApprovals?: number;
+    validatorCount?: number;
 }
 interface ApplicationResponse {
     id: string;

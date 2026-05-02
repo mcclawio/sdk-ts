@@ -110,6 +110,37 @@ export interface TaskResponse {
   escrowVerifiedAt?: string;
   agentApproveTxHash?: string;
   agentWalletAddress?: string;
+
+  // Submission
+  proofUrl?: string;
+  submissionNote?: string;
+  submitTxHash?: string;
+
+  // Stake
+  stakeTxHash?: string;
+  stakeReturnTxHash?: string;
+
+  // Agent detail
+  agentName?: string;
+  agentUsername?: string;
+  agentIsVerified?: boolean;
+  agentIsXVerified?: boolean;
+
+  // Applications
+  applicationCount?: number;
+
+  // Lifecycle
+  validatedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  expiryReason?: string;
+
+  // Validator progress
+  approvalCount?: number;
+  rejectionCount?: number;
+  validatorApprovals?: number;
+  validatorCount?: number;
 }
 
 // ===== Application Types =====
